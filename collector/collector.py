@@ -5,7 +5,7 @@ from config import API_URL, HEADERS, TOP_TRADERS_ADDRESSES
 from database import Base, engine, SessionLocal, Fill
 
 def get_user_fills(user_address):
-    """تاریخچه معاملات (fills) را برای یک کاربر خاص دریافت می‌کند."""
+    """Fetches the transaction history (fills) for a specific user."""
     payload = {"type": "userFills", "user": user_address}
     try:
         response = requests.post(API_URL, headers=HEADERS, json=payload, timeout=30)
@@ -16,11 +16,17 @@ def get_user_fills(user_address):
         return None
 
 def run_collector():
-    print("🚀 Collector started with simple INSERT logic (allows duplicates)...")
+    print("🚀 Collector started... Will clear the DB before each run.")
     Base.metadata.create_all(bind=engine)
     
     with SessionLocal() as session:
         try:
+            # --- KEY CHANGE ---
+            # Delete all existing records from the 'fills' table first.
+            print("🧹 Clearing old records from the 'fills' table...")
+            session.query(Fill).delete()
+            # ------------------
+
             total_inserted_count = 0
             for address in TOP_TRADERS_ADDRESSES:
                 print(f"Fetching fills for: {address}")
@@ -51,14 +57,15 @@ def run_collector():
                 if not fills_to_insert:
                     continue
                 
-                # منطق ساده: فقط رکوردهای جدید را اضافه کن
+                # Add the new records
                 session.add_all(fills_to_insert)
-                session.commit()
                 
                 total_inserted_count += len(fills_to_insert)
-                print(f"✅ Inserted {len(fills_to_insert)} new fill records for user {address}.")
+                print(f"✅ Prepared {len(fills_to_insert)} new fill records for user {address}.")
 
-            print(f"🎉 Successfully inserted a total of {total_inserted_count} records.")
+            # Commit the transaction (deletes and inserts)
+            session.commit()
+            print(f"🎉 Successfully cleared and saved a total of {total_inserted_count} new records.")
             
         except Exception as e:
             print(f"❌ An unexpected error occurred: {e}")
