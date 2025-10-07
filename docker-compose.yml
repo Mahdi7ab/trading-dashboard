@@ -1,0 +1,42 @@
+version: "3.8"
+
+services:
+  # سرویس دیتابیس PostgreSQL
+  db:
+    image: postgres:15-alpine # استفاده از ایمیج رسمی و سبک postgres
+    container_name: trading_db
+    restart: always
+    environment:
+      - POSTGRES_USER=myuser
+      - POSTGRES_PASSWORD=mysecretpassword
+      - POSTGRES_DB=trading_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data # ذخیره داده‌ها به صورت دائمی
+    ports:
+      - "5432:5432" # اتصال به دیتابیس از سیستم خودتان (برای دیباگ)
+
+  # سرویس اسکریپت جمع‌آوری کننده داده
+  collector:
+    build: ./collector # مسیر ساخت ایمیج از Dockerfile
+    container_name: trading_collector
+    restart: on-failure
+    depends_on:
+      - db # تضمین می‌کند که دیتابیس قبل از collector اجرا شود
+    environment:
+      # پاس دادن آدرس دیتابیس به کانتینر collector
+      # توجه کن که هاست دیتابیس، نام سرویس آن یعنی 'db' است نه 'localhost'
+      - DATABASE_URL=postgresql://myuser:mysecretpassword@db:5432/trading_db
+    command: >
+      sh -c "
+        echo 'Waiting for database to be ready...' &&
+        sleep 10 &&
+        while true; do
+          python collector.py;
+          echo 'Collector finished run. Waiting 5 minutes for the next run...';
+          sleep 300;
+        done
+      "
+
+volumes:
+  # تعریف volume برای نگهداری دائمی داده‌های دیتابیس
+  postgres_data:
