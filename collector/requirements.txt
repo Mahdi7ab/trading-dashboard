@@ -3,3 +3,5 @@ sqlalchemy
 psycopg2-binary
 prettytable
 Pillow
+python-telegram-bot
+httpx[socks]

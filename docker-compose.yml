@@ -1,9 +1,8 @@
 version: "3.8"
 
 services:
-  # سرویس دیتابیس PostgreSQL
   db:
-    image: postgres:15-alpine # استفاده از ایمیج رسمی و سبک postgres
+    image: postgres:15-alpine
     container_name: trading_db
     restart: always
     environment:
@@ -11,19 +10,17 @@ services:
       - POSTGRES_PASSWORD=mysecretpassword
       - POSTGRES_DB=trading_db
     volumes:
-      - postgres_data:/var/lib/postgresql/data # ذخیره داده‌ها به صورت دائمی
+      - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432" # اتصال به دیتابیس از سیستم خودتان (برای دیباگ)
+      - "5432:5432"
 
-  # سرویس کشف تریدرها (هر 24 ساعت)
   discover_traders:
-    build: ./collector # مسیر ساخت ایمیج از Dockerfile
+    build: ./collector
     container_name: trading_discover
     restart: on-failure
     depends_on:
-      - db # تضمین می‌کند که دیتابیس قبل از آن اجرا شود
+      - db
     environment:
-      # پاس دادن آدرس دیتابیس به کانتینر
       - DATABASE_URL=postgresql://myuser:mysecretpassword@db:5432/trading_db
     command: >
       sh -c "
@@ -32,19 +29,17 @@ services:
           echo '🚀 Running discover_traders.py (Run every 24h)...';
           python discover_traders.py;
           echo '✅ Trader list updated. Waiting 24 hours...';
-          sleep 86400; # 86400 ثانیه = 24 ساعت
+          sleep 86400; 
         done
       "
 
-  # سرویس جمع‌آوری تراکنش‌ها (هر 10 دقیقه)
   collector:
-    build: ./collector # مسیر ساخت ایمیج از Dockerfile
+    build: ./collector
     container_name: trading_collector
     restart: on-failure
     depends_on:
-      - db # تضمین می‌کند که دیتابیس قبل از collector اجرا شود
+      - db
     environment:
-      # پاس دادن آدرس دیتابیس به کانتینر
       - DATABASE_URL=postgresql://myuser:mysecretpassword@db:5432/trading_db
     command: >
       sh -c "
@@ -53,37 +48,42 @@ services:
           echo '🚀 Running collector.py (Run every 10m)...';
           python collector.py;
           echo '✅ Fills collected. Waiting 10 minutes...';
-          sleep 600; # 600 ثانیه = 10 دقیقه
+          sleep 600; 
         done
       "
 
-  # سرویس تحلیل و ساخت سیگنال (هر 10 دقیقه)
   analyzer:
     build: ./collector
     container_name: trading_analyzer
     restart: on-failure
     depends_on:
       - db
-      - collector # اجرا بعد از collector
+      - collector
+    env_file:
+      - ./.env
     environment:
-      # پاس دادن آدرس دیتابیس به کانتینر
       - DATABASE_URL=postgresql://myuser:mysecretpassword@db:5432/trading_db
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+      - PROXY_URL=${PROXY_URL}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
-      # این بخش پوشه results/ در سیستم شما را به پوشه /app/results در کانتینر متصل می‌کند
-      # ./results به معنای پوشه‌ای به نام "results" در همانجایی است که این فایل docker-compose.yml قرار دارد
       - ./results:/app/results
     command: >
       sh -c "
         echo 'Waiting for database and collector...' &&
-        sleep 15 && # کمی تاخیر اولیه تا collector اول اجرا شود
+        sleep 15 && 
         while true; do
-          echo '📊 Running analyzer (query_example.py) (Run every 10m)...';
-          python query_example.py;
-          echo '✅ Analysis complete. Waiting 10 minutes...';
-          sleep 600; # 600 ثانیه = 10 دقیقه
+          # -------------------------------------------------
+          # 🔽 (تغییر) اجرای اسکریپت جدید 🔽
+          # -------------------------------------------------
+          echo '📊 Running analyzer (analyzer.py)...';
+          python analyzer.py; 
+          echo '✅ Analysis and sending complete. Waiting 10 minutes...';
+          sleep 600; 
         done
       "
 
 volumes:
-  # تعریف volume برای نگهداری دائمی داده‌های دیتابیس
   postgres_data:
