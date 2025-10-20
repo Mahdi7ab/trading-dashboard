@@ -15,11 +15,9 @@ services:
     ports:
       - "5432:5432" # اتصال به دیتابیس از سیستم خودتان (برای دیباگ)
 
-  # -------------------------------------------------
-  # 🔽 (جدید) سرویس کشف تریدرهای برتر 🔽
-  # -------------------------------------------------
+  # سرویس کشف تریدرها (هر 24 ساعت)
   discover_traders:
-    build: ./collector # از همان Dockerfile استفاده می‌کند
+    build: ./collector # مسیر ساخت ایمیج از Dockerfile
     container_name: trading_discover
     restart: on-failure
     depends_on:
@@ -29,19 +27,16 @@ services:
       - DATABASE_URL=postgresql://myuser:mysecretpassword@db:5432/trading_db
     command: >
       sh -c "
-        echo 'Waiting for database to be ready...' &&
-        sleep 10 &&
+        echo 'Waiting for database...' && sleep 10 &&
         while true; do
-          echo '🚀 Running discover_traders.py to update top traders...';
+          echo '🚀 Running discover_traders.py (Run every 24h)...';
           python discover_traders.py;
-          echo '✅ Trader list updated. Waiting 6 hours for the next run...';
-          sleep 21600; # 21600 ثانیه = 6 ساعت
+          echo '✅ Trader list updated. Waiting 24 hours...';
+          sleep 86400; # 86400 ثانیه = 24 ساعت
         done
       "
 
-  # -------------------------------------------------
-  # 🔽 (تغییر یافته) سرویس جمع‌آوری کننده داده 🔽
-  # -------------------------------------------------
+  # سرویس جمع‌آوری تراکنش‌ها (هر 10 دقیقه)
   collector:
     build: ./collector # مسیر ساخت ایمیج از Dockerfile
     container_name: trading_collector
@@ -53,12 +48,38 @@ services:
       - DATABASE_URL=postgresql://myuser:mysecretpassword@db:5432/trading_db
     command: >
       sh -c "
-        echo 'Waiting for database to be ready...' &&
-        sleep 10 &&
+        echo 'Waiting for database...' && sleep 10 &&
         while true; do
-          echo '🚀 Running collector.py to fetch fills...';
+          echo '🚀 Running collector.py (Run every 10m)...';
           python collector.py;
-          echo '✅ Fills collected. Waiting 10 minutes for the next run...';
+          echo '✅ Fills collected. Waiting 10 minutes...';
+          sleep 600; # 600 ثانیه = 10 دقیقه
+        done
+      "
+
+  # سرویس تحلیل و ساخت سیگنال (هر 10 دقیقه)
+  analyzer:
+    build: ./collector
+    container_name: trading_analyzer
+    restart: on-failure
+    depends_on:
+      - db
+      - collector # اجرا بعد از collector
+    environment:
+      # پاس دادن آدرس دیتابیس به کانتینر
+      - DATABASE_URL=postgresql://myuser:mysecretpassword@db:5432/trading_db
+    volumes:
+      # این بخش پوشه results/ در سیستم شما را به پوشه /app/results در کانتینر متصل می‌کند
+      # ./results به معنای پوشه‌ای به نام "results" در همانجایی است که این فایل docker-compose.yml قرار دارد
+      - ./results:/app/results
+    command: >
+      sh -c "
+        echo 'Waiting for database and collector...' &&
+        sleep 15 && # کمی تاخیر اولیه تا collector اول اجرا شود
+        while true; do
+          echo '📊 Running analyzer (query_example.py) (Run every 10m)...';
+          python query_example.py;
+          echo '✅ Analysis complete. Waiting 10 minutes...';
           sleep 600; # 600 ثانیه = 10 دقیقه
         done
       "
