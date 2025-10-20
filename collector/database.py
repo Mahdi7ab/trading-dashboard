@@ -33,3 +33,17 @@ class Fill(Base):
     direction = Column(String)
     pnl = Column(Float, nullable=True)
     timestamp = Column(BigInteger, index=True)
+
+class TrackedTrader(Base):
+    """
+    جدولی برای نگهداری لیست تریدرهای سودده که باید دنبال شوند.
+    این جدول توسط discover_traders.py پر می‌شود.
+    """
+    __tablename__ = "tracked_traders"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_address = Column(String, unique=True, index=True, nullable=False)
+    pnl = Column(Float, nullable=True) # برای ذخیره سود تریدر در زمان کشف شدن
+
+    def __repr__(self):
+        return f"<TrackedTrader(user_address='{self.user_address}', pnl={self.pnl})>"

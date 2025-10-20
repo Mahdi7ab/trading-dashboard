@@ -15,7 +15,33 @@ services:
     ports:
       - "5432:5432" # اتصال به دیتابیس از سیستم خودتان (برای دیباگ)
 
-  # سرویس اسکریپت جمع‌آوری کننده داده
+  # -------------------------------------------------
+  # 🔽 (جدید) سرویس کشف تریدرهای برتر 🔽
+  # -------------------------------------------------
+  discover_traders:
+    build: ./collector # از همان Dockerfile استفاده می‌کند
+    container_name: trading_discover
+    restart: on-failure
+    depends_on:
+      - db # تضمین می‌کند که دیتابیس قبل از آن اجرا شود
+    environment:
+      # پاس دادن آدرس دیتابیس به کانتینر
+      - DATABASE_URL=postgresql://myuser:mysecretpassword@db:5432/trading_db
+    command: >
+      sh -c "
+        echo 'Waiting for database to be ready...' &&
+        sleep 10 &&
+        while true; do
+          echo '🚀 Running discover_traders.py to update top traders...';
+          python discover_traders.py;
+          echo '✅ Trader list updated. Waiting 6 hours for the next run...';
+          sleep 21600; # 21600 ثانیه = 6 ساعت
+        done
+      "
+
+  # -------------------------------------------------
+  # 🔽 (تغییر یافته) سرویس جمع‌آوری کننده داده 🔽
+  # -------------------------------------------------
   collector:
     build: ./collector # مسیر ساخت ایمیج از Dockerfile
     container_name: trading_collector
@@ -23,17 +49,17 @@ services:
     depends_on:
       - db # تضمین می‌کند که دیتابیس قبل از collector اجرا شود
     environment:
-      # پاس دادن آدرس دیتابیس به کانتینر collector
-      # توجه کن که هاست دیتابیس، نام سرویس آن یعنی 'db' است نه 'localhost'
+      # پاس دادن آدرس دیتابیس به کانتینر
       - DATABASE_URL=postgresql://myuser:mysecretpassword@db:5432/trading_db
     command: >
       sh -c "
         echo 'Waiting for database to be ready...' &&
         sleep 10 &&
         while true; do
+          echo '🚀 Running collector.py to fetch fills...';
           python collector.py;
-          echo 'Collector finished run. Waiting 5 minutes for the next run...';
-          sleep 300;
+          echo '✅ Fills collected. Waiting 10 minutes for the next run...';
+          sleep 600; # 600 ثانیه = 10 دقیقه
         done
       "
 

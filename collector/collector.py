@@ -1,8 +1,10 @@
 # collector/collector.py
 
 import requests
-from config import API_URL, HEADERS, TOP_TRADERS_ADDRESSES
-from database import Base, engine, SessionLocal, Fill
+# 🔽 (تغییر ۱) دیگر لیست آدرس‌ها را از config وارد نمی‌کنیم
+from config import API_URL, HEADERS
+# 🔽 (تغییر ۲) مدل TrackedTrader را برای خواندن آدرس‌ها وارد می‌کنیم
+from database import Base, engine, SessionLocal, Fill, TrackedTrader
 
 def get_user_fills(user_address):
     """Fetches the transaction history (fills) for a specific user."""
@@ -21,6 +23,21 @@ def run_collector():
     
     with SessionLocal() as session:
         try:
+            # -------------------------------------------------
+            # 🔽 (تغییر ۳) خواندن لیست آدرس‌ها از دیتابیس 🔽
+            # -------------------------------------------------
+            print("Fetching trader addresses from 'tracked_traders' table...")
+            traders_to_track = session.query(TrackedTrader).all()
+            
+            if not traders_to_track:
+                print("🤷 No traders found in 'tracked_traders' table. Did you run discover_traders.py first?")
+                return
+
+            # استخراج آدرس‌ها از آبجکت‌ها
+            addresses_list = [trader.user_address for trader in traders_to_track]
+            print(f"✅ Found {len(addresses_list)} traders to collect data for.")
+            # -------------------------------------------------
+            
             # --- KEY CHANGE ---
             # Delete all existing records from the 'fills' table first.
             print("🧹 Clearing old records from the 'fills' table...")
@@ -28,7 +45,9 @@ def run_collector():
             # ------------------
 
             total_inserted_count = 0
-            for address in TOP_TRADERS_ADDRESSES:
+            
+            # 🔽 (تغییر ۴) حلقه‌ی for حالا از لیست آدرس‌های دیتابیس استفاده می‌کند
+            for address in addresses_list:
                 print(f"Fetching fills for: {address}")
                 fills_data = get_user_fills(address)
                 

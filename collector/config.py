@@ -1,5 +1,8 @@
 import os
 
+# 🔽 این خط جدید را اضافه کنید 🔽
+LEADERBOARD_API_URL = "https://stats-data.hyperliquid.xyz/Mainnet/leaderboard"
+
 # آدرس API و هدرهای درخواست
 API_URL = "https://api.hyperliquid.xyz/info"
 HEADERS = {
@@ -11,6 +14,7 @@ HEADERS = {
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://myuser:mysecretpassword@localhost:5432/trading_db")
 
 # لیستی از آدرس‌های تریدرهایی که می‌خواهی پوزیشن‌های باز آن‌ها را دنبال کنی
+# 🔴 ما دیگر به این لیست ثابت نیاز نداریم، اما فعلاً بگذارید بماند
 TOP_TRADERS_ADDRESSES = [
     "0x15b325660a1c4a9582a7d834c31119c0cb9e3a42",
     "0x8af700ba841f30e0a3fcb0ee4c4a9d223e1efa05",
